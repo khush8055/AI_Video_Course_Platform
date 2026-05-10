@@ -82,21 +82,26 @@ exports.generateNotes = async (req, res) => {
             let transcriptArray = [];
             if (Array.isArray(data)) {
                 transcriptArray = data;
+                if (data.length > 0 && data[0].transcriptionAsText) fullTranscript = data[0].transcriptionAsText;
             } else if (data.transcript && Array.isArray(data.transcript)) {
                 transcriptArray = data.transcript;
+            } else if (data.transcripts && Array.isArray(data.transcripts)) {
+                transcriptArray = data.transcripts;
             } else if (data.data && Array.isArray(data.data)) {
                 transcriptArray = data.data;
             } else if (typeof data === 'string') {
                 fullTranscript = data;
             } else if (data.text) {
                 fullTranscript = data.text;
+            } else if (data.transcription) {
+                fullTranscript = data.transcription;
             } else if (data.message) {
                 throw new Error("RapidAPI Error: " + data.message);
             } else if (data.error) {
                 throw new Error("RapidAPI Error: " + data.error);
             } else {
-                console.error("DEBUG: Unknown data format from RapidAPI:", JSON.stringify(data).substring(0, 200));
-                throw new Error("Unknown API Response: " + JSON.stringify(data).substring(0, 100));
+                // If it's a completely unknown object but has keys, let's just dump it so the user can see it
+                throw new Error("API Response format unknown. Raw: " + JSON.stringify(data).substring(0, 150));
             }
 
             // Combine transcript text if it's an array
@@ -106,12 +111,12 @@ exports.generateNotes = async (req, res) => {
                     if (typeof item === 'string') return item;
                     if (item && item.text) return item.text;
                     if (item && item.subtitle) return item.subtitle;
-                    return '';
+                    return JSON.stringify(item); // Fallback: just dump the object
                 }).join(' ').trim();
             }
 
             if (!fullTranscript || fullTranscript.length === 0) {
-                throw new Error("Transcript is empty or not available for this video.");
+                throw new Error("Transcript is empty. Raw API data: " + JSON.stringify(data).substring(0, 150));
             }
             
             console.log(`DEBUG: Transcript fetched successfully! Length (chars):`, fullTranscript.length);

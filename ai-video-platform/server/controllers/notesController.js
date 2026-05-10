@@ -1,4 +1,3 @@
-const { YoutubeTranscript } = require('youtube-transcript');
 const { generateAIContent } = require('../services/geminiService');
 
 /**
@@ -26,17 +25,61 @@ exports.generateNotes = async (req, res) => {
 
         console.log(`DEBUG: Starting process for videoId: ${videoId}`);
         
-        let transcriptData;
+        let fullTranscript = "";
         try {
-            const { fetchTranscript } = require('youtube-transcript');
-            console.log("DEBUG: Attempting to fetch transcript using fetchTranscript...");
+            console.log("DEBUG: Attempting to fetch transcript using RapidAPI (Youtube Transcriptor)...");
             
-            transcriptData = await fetchTranscript(videoId);
+            const options = {
+                method: 'GET',
+                headers: {
+                    'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || '5cc8644c0cmsh3b8545ed5414f65p16e75ejsnb96f671456de',
+                    'X-RapidAPI-Host': 'youtube-transcriptor.p.rapidapi.com'
+                }
+            };
             
-            if (!transcriptData || transcriptData.length === 0) {
-                throw new Error("Transcript is empty");
+            const url = `https://youtube-transcriptor.p.rapidapi.com/transcript?video_id=${videoId}&lang=en`;
+            const response = await fetch(url, options);
+            
+            if (!response.ok) {
+                throw new Error(`API returned status ${response.status}`);
             }
-            console.log(`DEBUG: Transcript fetched! (${transcriptData.length} segments)`);
+            
+            const data = await response.json();
+            console.log("DEBUG: RapidAPI response received.");
+
+            // Handle different possible JSON structures from the API
+            let transcriptArray = [];
+            if (Array.isArray(data)) {
+                transcriptArray = data;
+            } else if (data.transcript && Array.isArray(data.transcript)) {
+                transcriptArray = data.transcript;
+            } else if (data.data && Array.isArray(data.data)) {
+                transcriptArray = data.data;
+            } else if (typeof data === 'string') {
+                fullTranscript = data;
+            } else if (data.text) {
+                fullTranscript = data.text;
+            } else {
+                console.error("DEBUG: Unknown data format from RapidAPI:", JSON.stringify(data).substring(0, 200));
+                throw new Error("Unknown data format from RapidAPI");
+            }
+
+            // Combine transcript text if it's an array
+            if (!fullTranscript && transcriptArray.length > 0) {
+                // Try to handle objects with 'text' or just string elements
+                fullTranscript = transcriptArray.map(item => {
+                    if (typeof item === 'string') return item;
+                    if (item && item.text) return item.text;
+                    if (item && item.subtitle) return item.subtitle;
+                    return '';
+                }).join(' ').trim();
+            }
+
+            if (!fullTranscript || fullTranscript.length === 0) {
+                throw new Error("Transcript is empty or not available for this video.");
+            }
+            
+            console.log(`DEBUG: Transcript fetched successfully! Length (chars):`, fullTranscript.length);
         } catch (error) {
             console.error("DEBUG: Transcript Error:", error.message);
             return res.status(404).json({ 
@@ -44,10 +87,6 @@ exports.generateNotes = async (req, res) => {
                 message: "YouTube Transcript not found: " + error.message + ". Make sure the video has captions enabled."
             });
         }
-
-        // Combine transcript text
-        const fullTranscript = transcriptData.map(item => item.text).join(' ');
-        console.log("DEBUG: Transcript length (chars):", fullTranscript.length);
 
         // Send to Gemini for processing
         try {

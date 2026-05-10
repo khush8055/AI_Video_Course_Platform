@@ -59,9 +59,13 @@ exports.generateNotes = async (req, res) => {
                 fullTranscript = data;
             } else if (data.text) {
                 fullTranscript = data.text;
+            } else if (data.message) {
+                throw new Error("RapidAPI Error: " + data.message);
+            } else if (data.error) {
+                throw new Error("RapidAPI Error: " + data.error);
             } else {
                 console.error("DEBUG: Unknown data format from RapidAPI:", JSON.stringify(data).substring(0, 200));
-                throw new Error("Unknown data format from RapidAPI");
+                throw new Error("Unknown API Response: " + JSON.stringify(data).substring(0, 100));
             }
 
             // Combine transcript text if it's an array

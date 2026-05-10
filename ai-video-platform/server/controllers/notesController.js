@@ -37,15 +37,46 @@ exports.generateNotes = async (req, res) => {
                 }
             };
             
-            const url = `https://youtube-transcriptor.p.rapidapi.com/transcript?video_id=${videoId}&lang=en`;
-            const response = await fetch(url, options);
-            
-            if (!response.ok) {
-                throw new Error(`API returned status ${response.status}`);
+            let data;
+            let responseOk = false;
+            let lastErrorMsg = "";
+            const langOptions = ['', 'en', 'hi', 'a.en']; // Try no lang, English, Hindi, Auto-English
+
+            for (const lang of langOptions) {
+                const langParam = lang ? `&lang=${lang}` : '';
+                const url = `https://youtube-transcriptor.p.rapidapi.com/transcript?video_id=${videoId}${langParam}`;
+                console.log(`DEBUG: Trying URL: ${url}`);
+                
+                const response = await fetch(url, options);
+                
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        throw new Error(`API returned status ${response.status} - Please check RapidAPI Subscription`);
+                    }
+                    continue; // Try next language
+                }
+                
+                data = await response.json();
+                
+                if (data.message && data.message.includes("not available")) {
+                    lastErrorMsg = data.message;
+                    continue; // Try next language
+                }
+                if (data.error && data.error.includes("not available")) {
+                    lastErrorMsg = data.error;
+                    continue;
+                }
+
+                // If we get here, we have valid data!
+                responseOk = true;
+                break;
+            }
+
+            if (!responseOk || !data) {
+                throw new Error(lastErrorMsg || "Could not fetch transcript in any supported language.");
             }
             
-            const data = await response.json();
-            console.log("DEBUG: RapidAPI response received.");
+            console.log("DEBUG: RapidAPI response received successfully.");
 
             // Handle different possible JSON structures from the API
             let transcriptArray = [];

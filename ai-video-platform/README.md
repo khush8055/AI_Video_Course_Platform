@@ -2,7 +2,7 @@
 
 A modern, high-performance AI-powered video learning platform designed for a premium student experience. Master any skill with AI-enhanced notes, dual-theme support, and a sleek modern interface.
 
-![Preview](public/logo.svg) <!-- Replace with a real screenshot/image later -->
+![Preview of website](https://ai-video-platform-nine.vercel.app/) 
 
 ## ✨ Recent Successes & Features
 
@@ -94,4 +94,3 @@ ai-video-platform/
 
 ---
 
-Built with ❤️ by [Antigravity](https://github.com/antigravity)
